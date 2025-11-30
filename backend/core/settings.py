@@ -4,7 +4,7 @@ Configuración para el proyecto Django gestion_institucional.
 
 import os
 from pathlib import Path
-from datetime import timedelta # Importamos timedelta para la configuración JWT
+from datetime import timedelta
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -20,9 +20,7 @@ DEBUG = True
 
 ALLOWED_HOSTS = []
 
-
 # Application definition
-
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -30,20 +28,19 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    
+
     # Terceros
     'rest_framework',
-    'corsheaders', # Para permitir conexiones desde el frontend
-    'rest_framework_simplejwt', # Para autenticación JWT
-    
+    'corsheaders', 
+    'rest_framework_simplejwt', 
+
     # Aplicaciones locales
-    'usuarios',
+    'usuarios.apps.UsuariosConfig', # <--- CORREGIDO: Usando la configuración de la App explícita
 ]
 
 MIDDLEWARE = [
     # CORS debe ir primero
-    'corsheaders.middleware.CorsMiddleware', 
-    
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -73,17 +70,15 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'gestion_institucional.wsgi.application'
 
-
 # Database
 # https://docs.djangoproject.com/en/5.0/ref/settings/#databases
 
-DATABASES = {
+DATABASES = { # <-- ¡CORREGIDO! Antes era DATASES
     'default': {
         'ENGINE': 'django.db.backends.sqlite3',
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
 
 # Password validation
 # https://docs.djangoproject.com/en/5.0/ref/settings/#auth-password-validators
@@ -103,7 +98,6 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
-
 # Internationalization
 # https://docs.djangoproject.com/en/5.0/topics/i18n/
 
@@ -114,7 +108,6 @@ TIME_ZONE = 'America/Lima'
 USE_I18N = True
 
 USE_TZ = True
-
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.0/howto/static-files/
@@ -128,8 +121,15 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 
 # =========================================================================
-# CONFIGURACIÓN DE DJANGO REST FRAMEWORK (DRF)
+# CONFIGURACIÓN CLAVE: MODELO DE USUARIO PERSONALIZADO (¡AGREGADO AHORA!)
 # =========================================================================
+# Esto le dice a Django que use nuestro modelo Usuario de la app 'usuarios' 
+AUTH_USER_MODEL = 'usuarios.Usuario'
+
+
+# =======================================================================
+# CONFIGURACIÓN DE DJANGO REST FRAMEWORK (DRF)
+# =======================================================================
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -139,33 +139,39 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         # Por defecto, todos los endpoints requerirán autenticación.
         'rest_framework.permissions.IsAuthenticated',
-    )
+    ),
 }
 
-# =========================================================================
+# =======================================================================
 # CONFIGURACIÓN DE CORS HEADERS (MUY IMPORTANTE PARA EL FRONTEND)
-# =========================================================================
+# =======================================================================
 
 # Permitir todas las peticiones CORS durante el desarrollo.
 # Tu frontend corre en http://localhost:5173
+
 CORS_ALLOW_ALL_ORIGINS = True
 
-# =========================================================================
+# =======================================================================
 # CONFIGURACIÓN DE DJANGO SIMPLE JWT
-# =========================================================================
+# =======================================================================
 
 SIMPLE_JWT = {
-    # Tiempo de vida del token de acceso
-    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
+    # CRÍTICO: Indica a DRF Simple JWT que use tu Serializador personalizado
+    # que busca 'dni' en lugar de 'username'.
+    'TOKEN_OBTAIN_SERIALIZER': 'usuarios.serializers.DniTokenObtainPairSerializer',
+
+    # Tiempo de vida del token de acceso (Aumentado a 60 minutos para desarrollo)
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=60),
+    
     # Tiempo de vida del token de refresco
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
-    
+
     # Configuramos el endpoint de login/token para que use el nombre de usuario y contraseña
     "AUTH_HEADER_TYPES": ("Bearer",),
     "AUTH_HEADER_NAME": "HTTP_AUTHORIZATION",
     "USER_ID_FIELD": "id",
     "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
-    
+
     "BLACKLIST_AFTER_ROTATION": False,
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",

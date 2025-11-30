@@ -22,7 +22,7 @@ urlpatterns = [
         # Endpoint para refrescar el token de acceso
         path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
         
-        # Incluir URLs de la aplicación 'users'
-        path('', include('users.urls')), 
+        # Incluir URLs de la aplicación 'usuarios'
+        path('', include('usuarios.urls')), 
     ])),
 ]

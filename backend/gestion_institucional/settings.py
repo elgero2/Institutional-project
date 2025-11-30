@@ -37,7 +37,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt', # Para autenticación JWT
     
     # Aplicaciones locales
-    'usuarios',
+    'usuarios.apps.UsuariosConfig', # <--- ¡CORRECCIÓN FINAL! Nombre de clase explícito
 ]
 
 MIDDLEWARE = [
@@ -117,7 +117,7 @@ USE_TZ = True
 
 
 # Static files (CSS, JavaScript, Images)
-# https://docs.djangoproject.com/en/5.0/howto/static-files/
+# https://docs.djangoproject.com/en/5.0/topics/i18n/
 
 STATIC_URL = 'static/'
 
@@ -125,6 +125,14 @@ STATIC_URL = 'static/'
 # https://docs.djangoproject.com/en/5.0/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+# =========================================================================
+# CONFIGURACIÓN CLAVE: MODELO DE USUARIO PERSONALIZADO
+# =========================================================================
+# Esto le dice a Django que use nuestro modelo Usuario de la app 'usuarios' 
+# en lugar del modelo predeterminado (que no tiene el campo 'dni').
+AUTH_USER_MODEL = 'usuarios.Usuario'
 
 
 # =========================================================================
@@ -138,6 +146,7 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PERMISSION_CLASSES': (
         # Por defecto, todos los endpoints requerirán autenticación.
+        # Lo cambiaremos por endpoint si es necesario.
         'rest_framework.permissions.IsAuthenticated',
     )
 }
@@ -147,17 +156,23 @@ REST_FRAMEWORK = {
 # =========================================================================
 
 # Permitir todas las peticiones CORS durante el desarrollo.
-# Tu frontend corre en http://localhost:5173
+# En producción, esto debe ser una lista estricta.
 CORS_ALLOW_ALL_ORIGINS = True
+
+# Si prefieres ser estricto (mejor práctica en producción):
+# CORS_ALLOWED_ORIGINS = [
+#     'http://localhost:5173',  # URL donde corre el frontend de React
+# ]
+
 
 # =========================================================================
 # CONFIGURACIÓN DE DJANGO SIMPLE JWT
 # =========================================================================
 
 SIMPLE_JWT = {
-    # Tiempo de vida del token de acceso
+    # Cambiamos la duración del token de acceso (ej. a 5 minutos)
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=5),
-    # Tiempo de vida del token de refresco
+    # Cambiamos la duración del token de refresco (ej. a 1 día)
     "REFRESH_TOKEN_LIFETIME": timedelta(days=1),
     
     # Configuramos el endpoint de login/token para que use el nombre de usuario y contraseña
@@ -166,7 +181,11 @@ SIMPLE_JWT = {
     "USER_ID_FIELD": "id",
     "USER_AUTHENTICATION_RULE": "rest_framework_simplejwt.authentication.default_user_authentication_rule",
     
+    # Deshabilitamos la lista negra de tokens para simplicidad inicial, 
+    # pero se recomienda habilitarla en producción.
     "BLACKLIST_AFTER_ROTATION": False,
+    
+    # Nombre del campo para el token de acceso
     "AUTH_TOKEN_CLASSES": ("rest_framework_simplejwt.tokens.AccessToken",),
     "TOKEN_TYPE_CLAIM": "token_type",
     "TOKEN_USER_CLASS": "rest_framework_simplejwt.models.TokenUser",

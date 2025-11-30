@@ -1,78 +1,93 @@
-# backend/usuarios/models.py
 from django.db import models
-from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin
-from django.utils.translation import gettext_lazy as _
+# CRÍTICO: Importamos Group y Permission para poder definir los campos con related_name
+from django.contrib.auth.models import AbstractBaseUser, BaseUserManager, PermissionsMixin, Group, Permission 
 
-# --- 1. CONSTANTES DE RANGOS ---
-class RangoUsuario:
-    # Definimos las opciones posibles para el campo 'rango'
-    ADMINISTRADOR = 'ADMINISTRADOR'
-    MODERADOR = 'MODERADOR'
-    PROFESOR = 'PROFESOR'
-    SOPORTE = 'SOPORTE'
-    ALUMNO = 'ALUMNO'
+# =================================================================
+# 1. Definición del Manager Personalizado
+# =================================================================
+# Este manager es necesario para crear usuarios y superusuarios 
+# usando el campo DNI en lugar del nombre de usuario por defecto.
 
-    OPCIONES = [
-        (ADMINISTRADOR, 'Administrador'),
-        (MODERADOR, 'Moderador'),
-        (PROFESOR, 'Profesor'),
-        (SOPORTE, 'Soporte'),
-        (ALUMNO, 'Alumno'),
-    ]
-
-# --- 2. MANAGER PERSONALIZADO ---
-# Este manager es necesario para que Django sepa cómo crear usuarios con nuestro modelo
-class CustomUserManager(BaseUserManager):
+class UsuarioManager(BaseUserManager):
+    # Método para crear usuarios normales
     def create_user(self, dni, password=None, **extra_fields):
+        # La validación de DNI es CRÍTICA
         if not dni:
-            raise ValueError('El DNI debe ser proporcionado')
+            raise ValueError('El campo DNI debe ser obligatorio.')
         
-        user = self.model(
-            dni=dni,
-            **extra_fields
-        )
+        # Creamos la instancia del usuario
+        user = self.model(dni=dni, **extra_fields)
         user.set_password(password)
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, dni, password, **extra_fields):
-        extra_fields.setdefault('rango', RangoUsuario.ADMINISTRADOR)
+    # Método para crear superusuarios (administradores)
+    def create_superuser(self, dni, password=None, **extra_fields):
         extra_fields.setdefault('is_staff', True)
         extra_fields.setdefault('is_superuser', True)
+        extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault('rango', 'Administrador')
         
+        if extra_fields.get('is_staff') is not True:
+            raise ValueError('Superuser must have is_staff=True.')
+        if extra_fields.get('is_superuser') is not True:
+            raise ValueError('Superuser must have is_superuser=True.')
+
+        # Llama a create_user
         return self.create_user(dni, password, **extra_fields)
 
-# --- 3. MODELO DE USUARIO PERSONALIZADO ---
+# =================================================================
+# 2. Definición del Modelo de Usuario
+# =================================================================
+
 class Usuario(AbstractBaseUser, PermissionsMixin):
-    # DNI: Es el campo clave y el que usaremos para iniciar sesión
-    dni = models.CharField(max_length=8, unique=True, primary_key=True, verbose_name=_('DNI/Identificación'))
-    
-    # Datos personales
+    # Campos base
+    dni = models.CharField(max_length=8, unique=True)
     nombres = models.CharField(max_length=100)
     apellidos = models.CharField(max_length=100)
     
-    # Rango: Determina la interfaz que verá
-    rango = models.CharField(
-        max_length=20,
-        choices=RangoUsuario.OPCIONES,
-        default=RangoUsuario.ALUMNO,
-        verbose_name=_('Rango de Usuario')
-    )
+    # Rango: para control de acceso
+    RANGO_CHOICES = [
+        ('Administrador', 'Administrador'),
+        ('Profesor', 'Profesor'),
+        ('Alumno', 'Alumno'),
+    ]
+    rango = models.CharField(max_length=20, choices=RANGO_CHOICES, default='Alumno')
     
-    # Campos de Django para la autenticación
+    # Campos de Django
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
+
+    # SOLUCIÓN AL ERROR E304: RELATED_NAME ÚNICO
+    groups = models.ManyToManyField(
+        Group,
+        verbose_name=('groups'),
+        blank=True,
+        help_text=('Los grupos a los que pertenece este usuario.'),
+        related_name="usuario_groups", 
+        related_query_name="usuario",
+    )
+    user_permissions = models.ManyToManyField(
+        Permission,
+        verbose_name=('user permissions'),
+        blank=True,
+        help_text=('Permisos específicos para este usuario.'),
+        related_name="usuario_user_permissions", 
+        related_query_name="usuario_permission",
+    )
     
-    # Configuramos el DNI como el campo de nombre de usuario para el inicio de sesión
+    # CLAVE ABSOLUTA: Define el campo de login
     USERNAME_FIELD = 'dni'
-    REQUIRED_FIELDS = ['nombres', 'apellidos']
     
-    objects = CustomUserManager()
+    # Campos que se pedirán en createsuperuser
+    REQUIRED_FIELDS = ['nombres', 'apellidos', 'rango']
+
+    # Asignación del Manager personalizado
+    objects = UsuarioManager()
 
     def __str__(self):
-        return f'{self.dni} - {self.apellidos}, {self.nombres} ({self.rango})'
+        return f"{self.dni} - {self.apellidos}, {self.nombres}"
 
     class Meta:
-        verbose_name = _('Usuario Institucional')
-        verbose_name_plural = _('Usuarios Institucionales')
-        ordering = ['apellidos']
+        verbose_name = 'Usuario'
+        verbose_name_plural = 'Usuarios'

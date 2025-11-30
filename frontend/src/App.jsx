@@ -15,22 +15,25 @@ const App = () => {
 
   /**
    * Maneja el proceso de inicio de sesión enviando credenciales a la API de Django.
-   * @param {string} username - Nombre de usuario.
+   * @param {string} dni - DNI del usuario.
    * @param {string} password - Contraseña.
    */
-  const handleLogin = async (username, password) => {
+  const handleLogin = async (dni, password) => { // Cambiado 'username' a 'dni'
     setIsLoading(true);
     setError('');
 
     try {
+      // DIAGNÓSTICO: Mostramos las credenciales que se van a enviar (solo para depuración)
+      console.log('Enviando credenciales:', { dni: dni, passwordLength: password.length > 0 ? 'HIDDEN' : 0 });
+
       // 1. Llamada a la API de Django para obtener el token de autenticación
-      // NOTA: Este endpoint debe existir en Django REST Framework
       const response = await fetch(`${API_BASE_URL}/token/`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ username, password }),
+        // CRÍTICO: CAMBIAMOS 'username' por 'dni' para que coincida con el Serializador de Django
+        body: JSON.stringify({ dni, password }), 
       });
 
       const data = await response.json();
@@ -39,23 +42,27 @@ const App = () => {
         // 2. Si el login es exitoso, guardamos el token
         const accessToken = data.access; 
 
-        // 3. Simulación del rango: Esto debe ser reemplazado por una llamada real al backend
+        // 3. Opcionalmente: Llamar a otro endpoint para obtener los datos de rango del usuario
+        // Este paso asume que tienes un endpoint como /users/me/ que devuelve la info.
+        // Por ahora, simularemos que el rango viene en la respuesta del token o se obtiene luego.
+        
+        // Simulación: Asignamos el rango basado en el dni (esto debe ser REAL en el backend)
         let userRango = 'USUARIO';
-        if (username === 'admin') {
+        if (dni === '00000000') { // Usamos el DNI del administrador
             userRango = 'ADMINISTRADOR';
-        } else if (username === 'profesor') {
+        } else if (dni === '96161953') { // Ejemplo de un DNI de profesor
             userRango = 'PROFESOR';
         }
 
         setUser({
-          username: username,
+          dni: dni, // Guardamos el DNI en lugar del username
           token: accessToken,
           rango: userRango,
         });
 
       } else {
         // Manejar errores de credenciales inválidas (401, 400)
-        setError(data.detail || 'Credenciales inválidas. Inténtalo de nuevo.');
+        setError(data.detail || 'Credenciales incorrectas. Verifique su DNI y Contraseña.'); // Mensaje de error más específico
       }
     } catch (err) {
       console.error('Error de red o de servidor:', err);
@@ -66,9 +73,11 @@ const App = () => {
   };
 
   /**
-   * Maneja el cierre de sesión (solo borra el estado local por ahora).
+   * Maneja el cierre de sesión (opcionalmente invalidando el token en el backend).
    */
   const handleLogout = () => {
+    // Aquí podrías enviar el refresh token al endpoint /logout/ de Django 
+    // para invalidar la sesión, pero por ahora solo borramos el estado local.
     setUser(null);
   };
 
